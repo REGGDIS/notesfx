@@ -4,6 +4,7 @@ package com.regdevs.notesfx.storage;
 import com.regdevs.notesfx.model.Note;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
@@ -48,5 +49,55 @@ public class NoteRepository {
         );
     }
 
-    // Métodos create, findById, update y delete similares usando sql.exec(...) y sql.query(...)
+    public Note create(String title, String content, Set<String> tagSet) {
+        String now = Note.isoNow();
+        sql.exec(
+                "INSERT INTO notes(title, content, tags, created_at, updated_at) VALUES (?,?,?,?,?)",
+                title,
+                content,
+                Note.normalizeTags(tagSet),
+                now,
+                now
+        );
+        long id = sql.query(
+                "SELECT last_insert_rowid()",
+                rs -> {
+                    try {
+                        return rs.getLong(1);
+                    } catch (SQLException e) {
+                        throw new RuntimeException("No se pudo obtener last_insert_rowid", e);
+                    }
+                }
+        ).get(0);
+        return findById(id);
+    }
+
+    public Note findById(long id) {
+        return sql.query(
+                "SELECT * FROM notes WHERE id = ?",
+                NoteMapper::fromResultSet,
+                id
+        ).stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    public void update(long id, String title, String content, Set<String> tagSet) {
+        String now = Note.isoNow();
+        sql.exec(
+                "UPDATE notes SET title = ?, content = ?, tags = ?, updated_at = ? WHERE id = ?",
+                title,
+                content,
+                Note.normalizeTags(tagSet),
+                now,
+                id
+        );
+    }
+
+    public void delete(long id) {
+        sql.exec(
+                "DELETE FROM notes WHERE id = ?",
+                id
+        );
+    }
 }
